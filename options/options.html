@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prompt Upgrader Settings</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Inter, system-ui, sans-serif; background: #0b1020; color: #eef2ff; margin: 0; padding: 24px; }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    .card { background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+    h1,h2 { margin: 0 0 10px; }
+    label { display: block; font-size: 14px; margin: 14px 0 6px; color: #b7c0e0; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: #0f172a; color: #eef2ff; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .actions { display: flex; gap: 10px; margin-top: 16px; }
+    button { padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: #1d4ed8; color: white; cursor: pointer; }
+    button.secondary { background: #1f2937; }
+    .help { color: #94a3b8; font-size: 13px; }
+    .toggle { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .toggle input { width: auto; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Prompt Upgrader settings</h1>
+      <p class="help">This starter is honest by design: it always works with a heuristic fallback, and it only uses local or remote AI routes when they are available and configured.</p>
+    </div>
+
+    <div class="card">
+      <h2>Routing</h2>
+      <label for="privacyMode">Privacy mode</label>
+      <select id="privacyMode">
+        <option value="local-only">Local only</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="cloud-preferred">Cloud preferred</option>
+      </select>
+
+      <label for="remoteEndpoint">Remote endpoint URL</label>
+      <input id="remoteEndpoint" type="url" placeholder="https://your-endpoint.example.com/upgrade" />
+      <div class="help">Optional. If set, the extension can route complex upgrades to your own backend.</div>
+
+      <label for="remoteApiKey">Remote API key</label>
+      <input id="remoteApiKey" type="password" placeholder="Bearer token or custom API key" />
+
+      <label for="remoteModelLabel">Remote model label</label>
+      <input id="remoteModelLabel" type="text" placeholder="custom-remote" />
+    </div>
+
+    <div class="card">
+      <h2>Behaviour</h2>
+      <div class="toggle"><input id="inlineButtonEnabled" type="checkbox" /><label for="inlineButtonEnabled">Show small inline Upgrade button on supported pages</label></div>
+      <div class="toggle"><input id="diagnosticsEnabled" type="checkbox" /><label for="diagnosticsEnabled">Enable diagnostics</label></div>
+      <div class="toggle"><input id="saveLocalHistory" type="checkbox" /><label for="saveLocalHistory">Save local history on this device</label></div>
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn">Save settings</button>
+      <button id="resetBtn" class="secondary">Reset defaults</button>
+    </div>
+
+    <p id="status" class="help"></p>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>
