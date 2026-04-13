@@ -1,30 +1,8 @@
-const PROVIDERS = {
-  chatgpt: {
-    matches: () => /chatgpt\.com|chat\.openai\.com/i.test(location.hostname),
-    selectors: [
-      'textarea',
-      '[contenteditable="true"]'
-    ]
-  },
-  gemini: {
-    matches: () => /gemini\.google\.com/i.test(location.hostname),
-    selectors: [
-      '[contenteditable="true"]',
-      'textarea'
-    ]
-  },
-  generic: {
-    matches: () => true,
-    selectors: [
-      'textarea',
-      '[contenteditable="true"]',
-      'input[type="text"]'
-    ]
-  }
-};
-
 let lastKnownTarget = null;
 let inlineButton = null;
+
+const providerAdapter = globalThis.PromptEnhancerProviderAdapters.getAdapter(location.hostname);
+const providerCore = globalThis.PromptEnhancerProviderCore;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'CAPTURE_PROMPT') {
@@ -78,14 +56,14 @@ function capturePrompt() {
     text,
     meta: {
       kind: getKind(target),
-      provider: inferProvider(),
+      provider: providerAdapter.provider,
       path: getElementPath(target)
     }
   };
 }
 
 async function writePrompt(text) {
-  const target = detectEditableTarget() || lastKnownTarget;
+  const target = resolveWriteTarget();
   if (!target) {
     return { ok: false, error: 'No editable prompt field is available for replacement.' };
   }
@@ -95,24 +73,23 @@ async function writePrompt(text) {
   let method = 'unknown';
 
   try {
-    if (kind === 'textarea' || target instanceof HTMLInputElement) {
+    if (kind === 'textarea' || kind === 'input') {
       method = 'native-value';
-      setNativeValue(target, text);
-      dispatchInputEvents(target);
+      writeNativeText(target, text);
     } else {
       method = 'contenteditable';
-      replaceContentEditable(target, text);
-      dispatchInputEvents(target);
+      writeContentEditableText(target, text);
     }
 
-    const verified = readFromTarget(target).trim() === text.trim();
+    dispatchInputEvents(target);
+    const verified = await verifyWriteback(target, text);
     if (!verified) {
       await copyToClipboard(text);
       return {
         ok: false,
         fallbackUsed: true,
         method: 'clipboard-fallback',
-        error: 'Direct replacement failed. Copied upgraded prompt to clipboard instead.'
+        error: 'Direct replacement failed verification. Copied upgraded prompt to clipboard instead.'
       };
     }
 
@@ -129,43 +106,15 @@ async function writePrompt(text) {
 }
 
 function detectEditableTarget() {
-  const active = document.activeElement;
-  if (isEditable(active)) return active;
+  const target = providerAdapter.findEditableTarget(document);
+  return target && isEditable(target) ? target : null;
+}
 
-  if (active?.closest) {
-    const closestEditable = active.closest('[contenteditable="true"], textarea, input[type="text"]');
-    if (isEditable(closestEditable)) return closestEditable;
-  }
-
-  const provider = getProviderConfig();
-  for (const selector of provider.selectors) {
-    const candidates = Array.from(document.querySelectorAll(selector));
-    const visible = candidates.find((node) => isEditable(node) && isVisible(node));
-    if (visible) return visible;
-  }
-
+function resolveWriteTarget() {
+  const detected = detectEditableTarget();
+  if (detected) return detected;
+  if (lastKnownTarget && document.contains(lastKnownTarget) && isEditable(lastKnownTarget)) return lastKnownTarget;
   return null;
-}
-
-function getProviderConfig() {
-  if (PROVIDERS.chatgpt.matches()) return PROVIDERS.chatgpt;
-  if (PROVIDERS.gemini.matches()) return PROVIDERS.gemini;
-  return PROVIDERS.generic;
-}
-
-function isEditable(element) {
-  if (!element || !(element instanceof HTMLElement)) return false;
-  if (!isVisible(element)) return false;
-  if (element instanceof HTMLTextAreaElement) return !element.disabled && !element.readOnly;
-  if (element instanceof HTMLInputElement) return element.type === 'text' && !element.disabled && !element.readOnly;
-  return element.isContentEditable;
-}
-
-function isVisible(element) {
-  if (!(element instanceof HTMLElement)) return false;
-  const style = getComputedStyle(element);
-  const rect = element.getBoundingClientRect();
-  return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
 }
 
 function readFromTarget(target) {
@@ -174,16 +123,18 @@ function readFromTarget(target) {
 }
 
 function getKind(target) {
-  if (target instanceof HTMLTextAreaElement) return 'textarea';
-  if (target instanceof HTMLInputElement) return 'input';
-  return 'contenteditable';
+  return globalThis.PromptEnhancerProviderAdapters.getKind(target);
+}
+
+function isEditable(target) {
+  return globalThis.PromptEnhancerProviderAdapters.isEditable(target);
 }
 
 function focusElement(target) {
   target.focus();
 }
 
-function setNativeValue(element, value) {
+function writeNativeText(element, value) {
   const prototype = Object.getPrototypeOf(element);
   const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
   if (descriptor?.set) {
@@ -191,23 +142,56 @@ function setNativeValue(element, value) {
   } else {
     element.value = value;
   }
-}
 
-function replaceContentEditable(element, text) {
-  const selection = window.getSelection();
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  selection.removeAllRanges();
-  selection.addRange(range);
-  document.execCommand('insertText', false, text);
-  if (readFromTarget(element).trim() !== text.trim()) {
-    element.textContent = text;
+  if (typeof element.setSelectionRange === 'function') {
+    const position = value.length;
+    element.setSelectionRange(position, position);
   }
 }
 
+function writeContentEditableText(element, text) {
+  const selection = window.getSelection();
+  const range = document.createRange();
+
+  range.selectNodeContents(element);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  const commandApplied = document.execCommand('insertText', false, text);
+  if (!commandApplied || !providerCore.verifyWritebackText(readFromTarget(element), text)) {
+    element.replaceChildren(document.createTextNode(text));
+    moveCaretToEnd(element);
+  }
+}
+
+function moveCaretToEnd(element) {
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 function dispatchInputEvents(element) {
-  element.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: null }));
+  element.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertReplacementText' }));
+  element.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertReplacementText', data: null }));
   element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function verifyWriteback(target, expectedText) {
+  const attempts = 3;
+  for (let index = 0; index < attempts; index += 1) {
+    const actual = readFromTarget(target);
+    if (providerCore.verifyWritebackText(actual, expectedText)) return true;
+    await delay(20);
+  }
+
+  return false;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function copyToClipboard(text) {
@@ -224,12 +208,6 @@ async function copyToClipboard(text) {
     document.execCommand('copy');
     textarea.remove();
   }
-}
-
-function inferProvider() {
-  if (PROVIDERS.chatgpt.matches()) return 'chatgpt';
-  if (PROVIDERS.gemini.matches()) return 'gemini';
-  return 'generic';
 }
 
 function getElementPath(element) {
