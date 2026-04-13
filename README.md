@@ -71,6 +71,21 @@ Expected request shape:
 Expected response shape:
 - must match the `PromptUpgradeResult` contract used in `src/schema.js`
 
+
+### Routing model (v0.3 milestone 1)
+Routing is now an explicit policy ladder with a decision label for each branch:
+
+1. `local-only` privacy mode always blocks remote routes (`policy-local-only` / `policy-local-only-fallback`).
+2. `cloud-preferred` with a configured endpoint always chooses remote (`policy-cloud-preferred`).
+3. Complex build/research drafts can route remote in hybrid mode (`complex-task-remote`).
+4. If built-in AI capability probes pass, local AI is used (`local-fast-path`).
+5. If local AI is unavailable but a remote endpoint exists, remote is used (`remote-availability-fallback`).
+6. Otherwise, heuristic fallback is used (`heuristic-only`).
+
+Built-in API probing does **not** trust symbol presence alone. It now verifies method shape (`availability` + `create`) and probes runtime availability with short-lived caching.
+
+Remote routing hardening includes timeout + abort behavior, HTTP status checks, JSON content-type validation, and transport error classification (`timeout`, `network`, `http_status`, `invalid_content_type`, `invalid_json`, `invalid_payload`).
+
 ## Project structure
 - `manifest.json` - extension manifest
 - `src/service-worker.js` - orchestration, routing, commands

@@ -33,3 +33,16 @@ The heuristic engine keeps the UX and system contracts testable from day one.
 2. JSDOM-based tests approximate layout; runtime event semantics (real keyboard/composition behavior) are still unverified.
 3. No telemetry/diagnostics yet for field-detection failures in the wild.
 4. Manifest permissions should still be reviewed before store submission.
+
+
+## v0.3 milestone 1 status: engine routing hardening + route test spine
+- Route selection is policy-first and returns explicit `decision` labels for branch-level reasoning.
+- Built-in AI checks now probe callable API shape and availability instead of checking global symbols alone.
+- Built-in availability is cached briefly to reduce repeated probing overhead during rapid invocations.
+- Remote transport now enforces timeout/abort, HTTP status guards, JSON content-type validation, and classified transport errors.
+- Added targeted routing tests for route decisions, built-in capability probing, and remote failure-to-heuristic fallback behavior.
+
+## Known routing limitations
+1. Built-in AI availability can change mid-session (flags/device constraints); cache is intentionally short-lived but still approximate.
+2. Remote endpoint validation currently enforces JSON responses but does not perform deep schema-aware endpoint diagnostics.
+3. Route decision heuristics still rely on lightweight task-type inference and complexity scoring, so niche prompts may route conservatively.

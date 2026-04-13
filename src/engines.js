@@ -1,14 +1,22 @@
 import { heuristicUpgrade, scoreComplexity } from './heuristic-engine.js';
 import { validateUpgradeResult } from './schema.js';
 
+const BUILTIN_AI_CACHE_TTL_MS = 30_000;
+const DEFAULT_REMOTE_TIMEOUT_MS = 8_000;
+
+let builtInAiAvailabilityCache = null;
+
 export async function runUpgrade({ draft, settings, context }) {
   const complexityScore = scoreComplexity(draft);
+  const taskTypeHint = inferTaskTypeHint(draft);
+  const builtInAvailability = await getBuiltInAiAvailability();
+
   const route = chooseRoute({
     privacyMode: settings.privacyMode,
-    localAvailable: await hasBuiltInAi(),
+    localAvailable: builtInAvailability.available,
+    remoteEndpoint: settings.remoteEndpoint,
     complexityScore,
-    taskTypeHint: inferTaskTypeHint(draft),
-    remoteEndpoint: settings.remoteEndpoint
+    taskTypeHint
   });
 
   let result;
@@ -16,7 +24,7 @@ export async function runUpgrade({ draft, settings, context }) {
 
   try {
     if (route.engine === 'local-ai') {
-      result = await runBuiltInAiUpgrade(draft);
+      result = await runBuiltInAiUpgrade(draft, builtInAvailability);
     } else if (route.engine === 'remote' && settings.remoteEndpoint) {
       result = await runRemoteUpgrade(draft, settings, context);
     } else {
@@ -25,7 +33,7 @@ export async function runUpgrade({ draft, settings, context }) {
     }
   } catch (error) {
     result = heuristicUpgrade(draft);
-    engineUsed = 'heuristic-fallback';
+    engineUsed = route.engine === 'remote' ? 'heuristic-fallback-remote' : 'heuristic-fallback';
   }
 
   const validation = validateUpgradeResult(result);
@@ -43,37 +51,87 @@ export async function runUpgrade({ draft, settings, context }) {
 }
 
 export function chooseRoute({ privacyMode, localAvailable, complexityScore, taskTypeHint, remoteEndpoint }) {
+  const remoteConfigured = isRemoteEndpointConfigured(remoteEndpoint);
+
   if (privacyMode === 'local-only') {
-    return { engine: localAvailable ? 'local-ai' : 'heuristic', reason: localAvailable ? 'Local-only mode with built-in AI available.' : 'Local-only mode without built-in AI; using heuristic fallback.' };
+    return localAvailable
+      ? { engine: 'local-ai', decision: 'policy-local-only', reason: 'Local-only policy and built-in AI available.' }
+      : { engine: 'heuristic', decision: 'policy-local-only-fallback', reason: 'Local-only policy without built-in AI; heuristic fallback.' };
   }
 
-  if (privacyMode === 'cloud-preferred' && remoteEndpoint) {
-    return { engine: 'remote', reason: 'Cloud-preferred mode with remote endpoint configured.' };
+  if (privacyMode === 'cloud-preferred' && remoteConfigured) {
+    return { engine: 'remote', decision: 'policy-cloud-preferred', reason: 'Cloud-preferred policy with remote endpoint configured.' };
   }
 
-  if (taskTypeHint === 'research' || taskTypeHint === 'build') {
-    if (complexityScore >= 2 && remoteEndpoint) {
-      return { engine: 'remote', reason: 'Complex build/research task routed to remote endpoint.' };
-    }
+  if ((taskTypeHint === 'research' || taskTypeHint === 'build') && complexityScore >= 2 && remoteConfigured) {
+    return { engine: 'remote', decision: 'complex-task-remote', reason: 'Complex build/research task routed to remote endpoint.' };
   }
 
   if (localAvailable) {
-    return { engine: 'local-ai', reason: 'Built-in AI available for fast local upgrade.' };
+    return { engine: 'local-ai', decision: 'local-fast-path', reason: 'Built-in AI available for local upgrade.' };
   }
 
-  if (remoteEndpoint) {
-    return { engine: 'remote', reason: 'No local AI detected; using remote endpoint.' };
+  if (remoteConfigured) {
+    return { engine: 'remote', decision: 'remote-availability-fallback', reason: 'No built-in AI available; using remote endpoint.' };
   }
 
-  return { engine: 'heuristic', reason: 'No AI route available; using heuristic fallback.' };
+  return { engine: 'heuristic', decision: 'heuristic-only', reason: 'No built-in or remote route available; heuristic fallback.' };
 }
 
-async function hasBuiltInAi() {
-  return typeof self !== 'undefined' && (
-    'LanguageModel' in self ||
-    'Prompt' in self ||
-    'Rewriter' in self
-  );
+export function isRemoteEndpointConfigured(remoteEndpoint) {
+  return typeof remoteEndpoint === 'string' && remoteEndpoint.trim().length > 0;
+}
+
+export async function hasBuiltInAi() {
+  const availability = await getBuiltInAiAvailability();
+  return availability.available;
+}
+
+export async function getBuiltInAiAvailability({ forceRefresh = false } = {}) {
+  const now = Date.now();
+  if (!forceRefresh && builtInAiAvailabilityCache && now - builtInAiAvailabilityCache.checkedAt < BUILTIN_AI_CACHE_TTL_MS) {
+    return builtInAiAvailabilityCache;
+  }
+
+  const rewriter = await probeBuiltInApi('Rewriter');
+  const languageModel = await probeBuiltInApi('LanguageModel', {
+    expectedInputs: [{ type: 'text', languages: ['en'] }]
+  });
+
+  const availability = {
+    available: rewriter.available || languageModel.available,
+    checkedAt: now,
+    rewriter,
+    languageModel
+  };
+
+  builtInAiAvailabilityCache = availability;
+  return availability;
+}
+
+export function clearBuiltInAiAvailabilityCache() {
+  builtInAiAvailabilityCache = null;
+}
+
+async function probeBuiltInApi(apiName, availabilityArgs) {
+  const scope = typeof self === 'undefined' ? undefined : self;
+  const api = scope?.[apiName];
+  if (!api) return { supported: false, available: false, reason: `${apiName} missing` };
+
+  if (typeof api.availability !== 'function' || typeof api.create !== 'function') {
+    return { supported: false, available: false, reason: `${apiName} missing required methods` };
+  }
+
+  try {
+    const status = await api.availability(availabilityArgs);
+    if (status === 'unavailable') {
+      return { supported: true, available: false, status, reason: `${apiName} unavailable` };
+    }
+
+    return { supported: true, available: true, status, reason: `${apiName} ready` };
+  } catch (error) {
+    return { supported: true, available: false, reason: `${apiName} availability probe failed`, error: String(error?.message || error) };
+  }
 }
 
 function inferTaskTypeHint(draft) {
@@ -84,21 +142,16 @@ function inferTaskTypeHint(draft) {
   return 'write';
 }
 
-async function runBuiltInAiUpgrade(draft) {
-  // Honest behaviour: try built-in APIs if present, otherwise throw.
-  // The extension uses heuristic fallback whenever these APIs are unavailable.
-  if ('Rewriter' in self) {
-    const availability = await self.Rewriter.availability();
-    if (availability === 'unavailable') throw new Error('Rewriter unavailable');
+async function runBuiltInAiUpgrade(draft, builtInAvailability) {
+  if (builtInAvailability?.rewriter?.available && 'Rewriter' in self) {
     const rewriter = await self.Rewriter.create({ tone: 'more-formal', length: 'medium' });
     const rewritten = await rewriter.rewrite(draft);
     return heuristicUpgrade(rewritten);
   }
 
-  if ('LanguageModel' in self) {
-    const availability = await self.LanguageModel.availability({ expectedInputs: [{ type: 'text', languages: ['en'] }] });
-    if (availability === 'unavailable') throw new Error('LanguageModel unavailable');
-    const session = await self.LanguageModel.create({ expectedInputs: [{ type: 'text', languages: ['en'] }] });
+  if (builtInAvailability?.languageModel?.available && 'LanguageModel' in self) {
+    const expectedInputs = [{ type: 'text', languages: ['en'] }];
+    const session = await self.LanguageModel.create({ expectedInputs });
     const prompt = [
       'Rewrite the following rough prompt into a clearer, stronger version while preserving intent.',
       '',
@@ -111,23 +164,75 @@ async function runBuiltInAiUpgrade(draft) {
   throw new Error('No built-in AI API available');
 }
 
-async function runRemoteUpgrade(draft, settings, context) {
-  const response = await fetch(settings.remoteEndpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(settings.remoteApiKey ? { 'Authorization': `Bearer ${settings.remoteApiKey}` } : {})
-    },
-    body: JSON.stringify({
-      draft,
-      context,
-      response_schema: 'prompt_upgrader_v1'
-    })
-  });
+class RemoteTransportError extends Error {
+  constructor(message, { code, status, cause } = {}) {
+    super(message);
+    this.name = 'RemoteTransportError';
+    this.code = code || 'remote_transport_error';
+    this.status = status;
+    this.cause = cause;
+  }
+}
 
-  if (!response.ok) {
-    throw new Error(`Remote endpoint failed: ${response.status}`);
+export async function runRemoteUpgrade(draft, settings, context) {
+  const controller = new AbortController();
+  const timeoutMs = Number(settings.remoteTimeoutMs) > 0 ? Number(settings.remoteTimeoutMs) : DEFAULT_REMOTE_TIMEOUT_MS;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(settings.remoteEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(settings.remoteApiKey ? { 'Authorization': `Bearer ${settings.remoteApiKey}` } : {})
+      },
+      body: JSON.stringify({
+        draft,
+        context,
+        response_schema: 'prompt_upgrader_v1'
+      }),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new RemoteTransportError(`Remote request timed out after ${timeoutMs}ms`, { code: 'timeout', cause: error });
+    }
+
+    throw new RemoteTransportError('Remote request failed to reach endpoint', { code: 'network', cause: error });
+  } finally {
+    clearTimeout(timeoutId);
   }
 
-  return await response.json();
+  if (!response.ok) {
+    throw new RemoteTransportError(`Remote endpoint returned HTTP ${response.status}`, {
+      code: 'http_status',
+      status: response.status
+    });
+  }
+
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('application/json')) {
+    throw new RemoteTransportError('Remote endpoint returned non-JSON content type', {
+      code: 'invalid_content_type'
+    });
+  }
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    throw new RemoteTransportError('Remote endpoint returned invalid JSON body', {
+      code: 'invalid_json',
+      cause: error
+    });
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    throw new RemoteTransportError('Remote endpoint returned empty or non-object JSON', {
+      code: 'invalid_payload'
+    });
+  }
+
+  return payload;
 }
