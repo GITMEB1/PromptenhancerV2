@@ -15,11 +15,18 @@
     return 'contenteditable';
   }
 
+  function isContentEditableElement(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    if (element.isContentEditable) return true;
+    const attr = (element.getAttribute('contenteditable') || '').toLowerCase();
+    return attr === '' || attr === 'true' || attr === 'plaintext-only';
+  }
+
   function isEditable(element) {
     if (!(element instanceof HTMLElement) || !isVisible(element)) return false;
     if (element instanceof HTMLTextAreaElement) return !element.disabled && !element.readOnly;
     if (element instanceof HTMLInputElement) return element.type === 'text' && !element.disabled && !element.readOnly;
-    return element.isContentEditable;
+    return isContentEditableElement(element);
   }
 
   function hasPromptHints(element) {
@@ -98,6 +105,12 @@
     getAdapter,
     isEditable,
     isVisible,
-    getKind
+    getKind,
+    isContentEditableElement,
+    hasPromptHints,
+    hasProviderAffinity,
+    buildCandidate,
+    collectCandidates,
+    findEditableTarget
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

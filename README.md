@@ -82,11 +82,20 @@ Expected response shape:
 - `sidepanel/` - persistent review/apply UI
 - `options/` - settings UI
 
+## Adapter DOM regression harness (v0.2 milestone 2)
+- Sanitized provider fixtures live in `tests/fixtures/chatgpt-compose.html` and `tests/fixtures/gemini-compose.html`.
+- `tests/provider-adapters-dom.test.cjs` validates adapter target selection against realistic prompt-field decoys.
+- Run adapter and core tests consistently via:
+
+```bash
+npm test
+```
+
 ## Important limitations
 This is a strong starter, not a finished product.
 
 It still needs:
-- broader regression testing against live/snapshotted provider DOM changes
+- broader fixture coverage for provider UI variants (mobile layouts, A/B experiments, localization changes)
 - richer provider adapters as provider UIs evolve
 - production telemetry
 - a hardened remote backend if you want cloud quality

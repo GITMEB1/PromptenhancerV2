@@ -22,8 +22,14 @@ The heuristic engine keeps the UX and system contracts testable from day one.
 - Editable target selection is ranked/scored instead of taking the first generic match.
 - Writeback verifies replacement text and preserves clipboard fallback when verification fails.
 
-## Remaining limitations
-1. Adapters still rely on DOM heuristics and need regression tests against provider snapshots.
-2. Contenteditable handling can still break if provider editors radically change event contracts.
+## v0.2 milestone 2 status: provider DOM regression harness
+- Added sanitized ChatGPT/Gemini HTML fixtures to model composer DOM shape with decoys.
+- Added adapter DOM tests that assert target selection picks the intended prompt field and rejects decoys.
+- Exposed candidate-collection helpers from `provider-adapters` so scoring can be validated deterministically.
+- Added a project-level `npm test` command (`node --test tests/*.test.cjs`) so adapter/core checks run consistently.
+
+## Remaining limitations / blind spots
+1. Fixture harness is static and cannot cover live provider experiments that radically alter selector contracts.
+2. JSDOM-based tests approximate layout; runtime event semantics (real keyboard/composition behavior) are still unverified.
 3. No telemetry/diagnostics yet for field-detection failures in the wild.
 4. Manifest permissions should still be reviewed before store submission.
