@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "One-Click Prompt Upgrader",
+  "description": "Upgrade rough prompts directly inside ChatGPT and Gemini with one action.",
+  "version": "0.1.0",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": {
+    "service_worker": "src/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "src/provider-core.js",
+        "src/provider-adapters.js",
+        "src/content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "options_page": "options/options.html",
+  "action": {
+    "default_title": "Prompt Upgrader"
+  },
+  "commands": {
+    "upgrade-prompt": {
+      "suggested_key": {
+        "default": "Alt+Shift+U",
+        "mac": "Command+Shift+U"
+      },
+      "description": "Upgrade the active prompt"
+    }
+  }
+}

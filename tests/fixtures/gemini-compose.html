@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <body>
+    <main>
+      <textarea
+        id="notes-decoy"
+        placeholder="Take a note"
+        data-test-rect="320x120"
+      ></textarea>
+
+      <rich-textarea id="composer-shell" data-id="modelresponse-composer">
+        <div
+          id="gemini-editor"
+          role="textbox"
+          contenteditable="true"
+          data-placeholder="Message Gemini"
+          aria-label="Message Gemini"
+          data-test-rect="900x220"
+        ></div>
+      </rich-textarea>
+
+      <div
+        id="hidden-gemini-decoy"
+        role="textbox"
+        contenteditable="true"
+        data-placeholder="Message Gemini"
+        style="visibility:hidden"
+        data-test-rect="900x220"
+      ></div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <body>
+    <main>
+      <input
+        id="search-decoy"
+        type="text"
+        aria-label="Search chats"
+        placeholder="Search"
+        data-test-rect="320x32"
+      />
+
+      <form aria-label="ChatGPT composer">
+        <textarea
+          id="prompt-textarea"
+          aria-label="Message ChatGPT"
+          placeholder="Message ChatGPT"
+          data-test-rect="860x180"
+        ></textarea>
+      </form>
+
+      <div
+        id="hidden-decoy"
+        role="textbox"
+        contenteditable="true"
+        aria-label="Message"
+        style="display:none"
+        data-test-rect="800x120"
+      ></div>
+    </main>
+  </body>
+</html>
