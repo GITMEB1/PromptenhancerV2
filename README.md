@@ -74,7 +74,9 @@ Expected response shape:
 ## Project structure
 - `manifest.json` - extension manifest
 - `src/service-worker.js` - orchestration, routing, commands
-- `src/content-script.js` - page capture and writeback
+- `src/provider-core.js` - provider inference, selector plans, candidate scoring, writeback verification helpers
+- `src/provider-adapters.js` - ChatGPT/Gemini adapter layer for editable-target detection
+- `src/content-script.js` - orchestration for capture/writeback using provider adapters
 - `src/engines.js` - local/remote/heuristic engine routing
 - `src/heuristic-engine.js` - always-available prompt transformation fallback
 - `sidepanel/` - persistent review/apply UI
@@ -84,8 +86,8 @@ Expected response shape:
 This is a strong starter, not a finished product.
 
 It still needs:
-- stronger provider-specific DOM adapters
-- fuller regression testing across UI changes
+- broader regression testing against live/snapshotted provider DOM changes
+- richer provider adapters as provider UIs evolve
 - production telemetry
 - a hardened remote backend if you want cloud quality
 - stricter security review and store-prep work

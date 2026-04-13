@@ -25,7 +25,11 @@
         "https://chat.openai.com/*",
         "https://gemini.google.com/*"
       ],
-      "js": ["src/content-script.js"],
+      "js": [
+        "src/provider-core.js",
+        "src/provider-adapters.js",
+        "src/content-script.js"
+      ],
       "run_at": "document_idle"
     }
   ],
