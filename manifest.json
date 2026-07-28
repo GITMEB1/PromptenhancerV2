@@ -1,18 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "One-Click Prompt Upgrader",
-  "description": "Upgrade rough prompts directly inside ChatGPT and Gemini with one action.",
-  "version": "0.1.0",
-  "permissions": [
-    "storage",
-    "sidePanel",
-    "tabs",
-    "scripting"
-  ],
+  "name": "Prompt Enhancer V3 — Clarity Engine",
+  "description": "Extract the real goal from rough prompts, resolve material ambiguity, and compile a model-ready request.",
+  "version": "0.5.0",
+  "permissions": ["storage", "sidePanel", "tabs", "scripting"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
-    "https://gemini.google.com/*"
+    "https://gemini.google.com/*",
+    "https://api.openai.com/*",
+    "https://openrouter.ai/*"
   ],
   "background": {
     "service_worker": "src/service-worker.js",
@@ -25,28 +22,20 @@
         "https://chat.openai.com/*",
         "https://gemini.google.com/*"
       ],
-      "js": [
-        "src/provider-core.js",
-        "src/provider-adapters.js",
-        "src/content-script.js"
-      ],
+      "js": ["src/provider-core.js", "src/provider-adapters.js", "src/content-script.js"],
       "run_at": "document_idle"
     }
   ],
-  "side_panel": {
-    "default_path": "sidepanel/sidepanel.html"
-  },
+  "side_panel": { "default_path": "sidepanel/sidepanel.html" },
   "options_page": "options/options.html",
-  "action": {
-    "default_title": "Prompt Upgrader"
-  },
+  "action": { "default_title": "Clarify this goal" },
   "commands": {
     "upgrade-prompt": {
       "suggested_key": {
         "default": "Alt+Shift+U",
         "mac": "Command+Shift+U"
       },
-      "description": "Upgrade the active prompt"
+      "description": "Clarify and compile the active prompt"
     }
   }
 }
