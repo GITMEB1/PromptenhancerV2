@@ -1,139 +1,87 @@
-# One-Click Prompt Upgrader
+# Prompt Enhancer V3 — Clarity Engine
 
-A real Chrome extension starter for upgrading rough prompts **inside ChatGPT and Gemini** with one action.
+A Chrome MV3 extension that turns a rough request into an explicit, reviewable goal before compiling a model-ready prompt.
 
-This build is designed to be honest and usable now:
-- it includes a **heuristic fallback** that always works
-- it can try **Chrome built-in AI APIs** when they are available in the browser
-- it can route to **your own remote endpoint** if you configure one
+The product loop is now:
 
-It is **not** pretending to ship production-grade AI in every environment by default.
-
-## What it does
-- Detects the active prompt field on supported pages
-- Captures the current draft
-- Produces:
-  - a default upgraded prompt
-  - concise variant
-  - rigorous variant
-  - agent-spec variant
-- Lets you replace the text directly in the page or copy it
-- Uses a Side Panel UI for review
-
-## Supported pages in this starter
-- `https://chatgpt.com/*`
-- `https://chat.openai.com/*`
-- `https://gemini.google.com/*`
-
-## Load it in Chrome
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select this folder
-5. Open ChatGPT or Gemini
-6. Use the toolbar button or keyboard shortcut:
-   - Windows/Linux: `Alt + Shift + U`
-   - macOS: `Command + Shift + U`
-
-## Routing behaviour
-### 1. Heuristic fallback
-Always available. Useful for:
-- rough drafts
-- structure upgrades
-- variant generation
-- local development and UI testing
-
-### 2. Chrome built-in AI
-The extension will try local built-in AI routes when available.
-
-Important reality:
-- Chrome built-in AI APIs are environment-dependent and not universally available.
-- The Prompt and Rewriter APIs are still evolving and may require Chrome versions, origin trials, or hardware conditions depending on the API and release track.
-- This starter therefore falls back cleanly instead of pretending those routes always exist.
-
-### 3. Remote endpoint
-If you set a remote endpoint in the options page, the extension can route complex upgrades there.
-
-Configurable settings:
-- **Remote endpoint URL** — must be `https://` or `http://` (validated on save)
-- **Remote API key** — sent as `Bearer` token in the `Authorization` header
-- **Remote model label** — informational label for your endpoint
-- **Request timeout** — how long to wait before falling back to heuristic (1000–60000ms, default 8000)
-
-Expected request shape:
-
-```json
-{
-  "draft": "raw user draft",
-  "context": {
-    "provider": "chatgpt",
-    "url": "https://chatgpt.com/...",
-    "title": "page title"
-  },
-  "response_schema": "prompt_upgrader_v1"
-}
+```text
+capture rough request
+  → identify the real goal and desired outcome
+  → interpret ambition signals such as “master” or “the best”
+  → expose assumptions and material ambiguity
+  → optionally collect focused clarification answers
+  → compile a lean prompt
+  → replace the draft in ChatGPT or Gemini
 ```
 
-Expected response shape:
-- must match the `PromptUpgradeResult` contract used in `src/schema.js`
-- if the response fails schema validation, the extension falls back to heuristic and surfaces the specific violations in the side panel
+The extension never auto-sends.
 
+## Why V3 exists
 
-### Routing model (v0.3 milestone 1)
-Routing is now an explicit policy ladder with a decision label for each branch:
+V2 primarily classified and reformatted prompts. V3 treats prompt quality as a goal-understanding problem.
 
-1. `local-only` privacy mode always blocks remote routes (`policy-local-only` / `policy-local-only-fallback`).
-2. `cloud-preferred` with a configured endpoint always chooses remote (`policy-cloud-preferred`).
-3. Complex build/research drafts can route remote in hybrid mode (`complex-task-remote`).
-4. If built-in AI capability probes pass, local AI is used (`local-fast-path`).
-5. If local AI is unavailable but a remote endpoint exists, remote is used (`remote-availability-fallback`).
-6. Otherwise, heuristic fallback is used (`heuristic-only`).
+The engine distinguishes between:
 
-Built-in API probing does **not** trust symbol presence alone. It now verifies method shape (`availability` + `create`) and probes runtime availability with short-lived caching.
+- **material ambiguity** — a missing detail that could substantially change the result
+- **ambition signals** — language such as “master”, “ultimate”, “professional”, or “production-grade” that raises the quality bar but is not itself a specification
+- **optional preference gaps** — details that can be handled with a transparent default instead of interrupting the user
 
-Remote routing hardening includes timeout + abort behavior, HTTP status checks, JSON content-type validation, transport error classification (`timeout`, `network`, `http_status`, `invalid_content_type`, `invalid_json`, `invalid_payload`), and schema validation of remote responses with diagnostic output.
+The side panel shows **What I think you mean** before showing the compiled prompt.
 
-## Project structure
-- `manifest.json` - extension manifest
-- `src/service-worker.js` - orchestration, routing, commands
-- `src/provider-core.js` - provider inference, selector plans, candidate scoring, writeback verification helpers
-- `src/provider-adapters.js` - ChatGPT/Gemini adapter layer for editable-target detection
-- `src/content-script.js` - orchestration for capture/writeback using provider adapters
-- `src/engines.js` - local/remote/heuristic engine routing
-- `src/heuristic-engine.js` - always-available prompt transformation fallback
-- `src/schema.js` - upgrade result schema validation with multi-error collection
-- `src/utils.js` - shared utilities (debounce)
-- `sidepanel/` - persistent review/apply UI
-- `options/` - settings UI
+## Providers
 
-## Test harness
-- Sanitized provider fixtures live in `tests/fixtures/chatgpt-compose.html` and `tests/fixtures/gemini-compose.html`.
-- `tests/provider-adapters-dom.test.cjs` validates adapter target selection against realistic prompt-field decoys.
-- `tests/engines-routing.test.js` validates route decisions, remote contract, schema repair, timeout propagation, and URL validation.
-- `tests/schema.test.js` validates the upgrade result schema validator itself (happy path, individual fields, multi-error, edge cases).
-- `tests/utils.test.js` validates the debounce utility (delay, cancellation, timer reset, repeated usage).
-- Run all tests via:
+V3 supports:
+
+- OpenAI through the Responses API with strict structured output
+- OpenRouter through Chat Completions with strict JSON Schema output
+- a managed/custom endpoint
+- an honest deterministic clarity fallback when no API provider is configured or a request fails
+
+Default OpenAI model: `gpt-5.6-terra`. Change this to `gpt-5.6-sol` for maximum capability or `gpt-5.6-luna` for lower-cost, high-volume use.
+
+## Privacy and API keys
+
+For private development, provider keys can be stored in Chrome local storage on the device. They are not stored in synced settings.
+
+For a public release, do not distribute a shared provider key in the extension. Use:
+
+```text
+extension → authenticated backend → OpenAI/OpenRouter
+```
+
+The backend should handle authentication, rate limiting, usage metering, request validation and secret management.
+
+## Load the extension
+
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Click **Load unpacked**.
+4. Select this repository folder.
+5. Open the extension settings and configure OpenAI, OpenRouter or a managed endpoint.
+6. Open ChatGPT or Gemini and write a rough request.
+7. Trigger the extension using the toolbar, inline button or `Alt + Shift + U`.
+
+## Core files
+
+- `src/clarity-provider.js` — OpenAI, OpenRouter and managed provider adapters plus the strict clarity schema
+- `src/heuristic-engine.js` — deterministic goal extraction and ambiguity classification
+- `src/engines.js` — provider selection, fallback and schema repair
+- `src/service-worker.js` — capture, run, refinement and optional local history orchestration
+- `sidepanel/` — interpretation-first review and clarification workflow
+- `options/` — provider, model, reasoning and clarification settings
+
+## Validation
 
 ```bash
+npm install
 npm test
 ```
 
-29 tests total (7 adapter/core, 7 routing/remote, 10 schema, 5 utility).
+The existing provider DOM fixtures remain in place because prompt capture and replacement are still the highest-fragility browser surfaces.
 
-## Important limitations
-This is a strong starter, not a finished product.
+## Current limitations
 
-It still needs:
-- broader fixture coverage for provider UI variants (mobile layouts, A/B experiments, localization changes)
-- richer provider adapters as provider UIs evolve
-- production telemetry
-- active remote endpoint health checking (currently validate-on-save only)
-- a hardened remote backend if you want cloud quality
-- stricter security review and store-prep work
-
-## Build intent
-This starter is based on a product direction where the highest-value action is:
-
-**capture rough prompt -> upgrade it -> replace it in the same page**
-
-That is the thing worth making excellent.
+- Direct BYOK storage is suitable for private testing, not the final hosted product architecture.
+- Provider model availability and structured-output support can differ on OpenRouter.
+- The clarification loop recompiles from the original request plus answers; persisted Responses API reasoning is not yet used.
+- Live ChatGPT and Gemini composer DOMs should be rechecked before a Chrome Web Store release.
