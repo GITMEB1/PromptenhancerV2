@@ -3,95 +3,77 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prompt Upgrader</title>
+  <title>Clarity Engine</title>
   <link rel="stylesheet" href="sidepanel.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div>
-        <div class="eyebrow">One-Click Prompt Upgrader</div>
-        <h1>Upgrade result</h1>
-      </div>
+      <div><div class="eyebrow">Prompt Enhancer V3</div><h1>Goal clarity</h1></div>
       <button id="openOptions" class="ghost-btn">Settings</button>
     </header>
 
-    <section id="statusCard" class="card status-card">
-      <div class="status-row">
-        <span id="statusBadge" class="badge badge-idle">Idle</span>
-        <span id="providerPill" class="pill">No page</span>
-      </div>
-      <p id="statusText">Trigger an upgrade from ChatGPT or Gemini to populate this panel.</p>
+    <section class="card status-card">
+      <div class="status-row"><span id="statusBadge" class="badge badge-idle">Idle</span><span id="providerPill" class="pill">No page</span></div>
+      <p id="statusText">Write a rough request, then trigger the clarity engine.</p>
     </section>
 
     <section id="processingSection" class="card hidden">
-      <div class="processing-indicator">
-        <div class="spinner"></div>
-        <span>Upgrading prompt…</span>
-      </div>
-      <details class="draft-details" open>
-        <summary>Original draft</summary>
-        <pre id="processingDraftText" class="draft-text"></pre>
-      </details>
+      <div class="processing-indicator"><div class="spinner"></div><span>Extracting the goal and material uncertainties…</span></div>
+      <details class="draft-details" open><summary>Rough request</summary><pre id="processingDraftText" class="draft-text"></pre></details>
     </section>
 
-    <section id="resultSection" class="card hidden">
-      <div class="tabs" id="variantTabs">
-        <button class="tab active" data-variant="default">Default</button>
-        <button class="tab" data-variant="concise">Concise</button>
-        <button class="tab" data-variant="rigorous">Rigorous</button>
-        <button class="tab" data-variant="agent_spec">Agent spec</button>
-      </div>
+    <section id="resultSection" class="hidden">
+      <section class="card">
+        <div class="eyebrow">What I think you mean</div>
+        <h2 id="primaryGoalText">Primary goal</h2>
+        <p id="interpretationText"></p>
+        <dl class="facts">
+          <div><dt>Desired outcome</dt><dd id="desiredOutcomeText">—</dd></div>
+          <div><dt>Quality bar</dt><dd id="qualityBarText">—</dd></div>
+        </dl>
+      </section>
 
-      <label for="resultText" class="label">Upgraded prompt</label>
-      <textarea id="resultText" class="result-text" spellcheck="false"></textarea>
+      <section id="questionsSection" class="card hidden">
+        <h2>Questions that could materially improve the result</h2>
+        <p class="eyebrow">Answer any that matter. Blank answers are ignored.</p>
+        <div id="questionFields"></div>
+        <button id="refineBtn" class="secondary-btn">Recompile with answers</button>
+      </section>
 
-      <div class="actions">
-        <button id="replaceBtn" class="primary-btn">Replace in page</button>
-        <button id="copyBtn" class="secondary-btn">Copy</button>
-      </div>
-
-      <details class="draft-details">
-        <summary>Original draft</summary>
-        <pre id="originalDraftText" class="draft-text"></pre>
-      </details>
-
-      <div class="meta-grid">
-        <div class="meta-block">
-          <h2>Assumptions</h2>
-          <ul id="assumptionsList"></ul>
+      <section class="card">
+        <div class="tabs" id="variantTabs">
+          <button class="tab active" data-variant="default">Compiled</button>
+          <button class="tab" data-variant="concise">Concise</button>
+          <button class="tab" data-variant="rigorous">Deep</button>
+          <button class="tab" data-variant="agent_spec">Implementation</button>
         </div>
-        <div class="meta-block">
-          <h2>Missing constraints</h2>
-          <ul id="constraintsList"></ul>
-        </div>
-      </div>
+        <label for="resultText" class="label">Model-ready prompt</label>
+        <textarea id="resultText" class="result-text" spellcheck="false"></textarea>
+        <div class="actions"><button id="replaceBtn" class="primary-btn">Replace in page</button><button id="copyBtn" class="secondary-btn">Copy</button></div>
+      </section>
 
-      <div class="meta-grid">
-        <div class="meta-block">
-          <h2>Clarifying questions</h2>
-          <ul id="questionsList"></ul>
+      <section class="card">
+        <div class="meta-grid">
+          <div class="meta-block"><h2>Assumptions</h2><ul id="assumptionsList"></ul></div>
+          <div class="meta-block"><h2>Ambition and other cues</h2><ul id="cuesList"></ul></div>
         </div>
-        <div class="meta-block" id="engineBlock">
-          <h2>Engine</h2>
-          <dl class="facts">
-            <div><dt>Task type</dt><dd id="taskTypeValue">—</dd></div>
-            <div><dt>Engine used</dt><dd id="engineUsedValue">—</dd></div>
-            <div id="routeDecisionRow" class="hidden"><dt>Route decision</dt><dd id="routeDecisionValue">—</dd></div>
-            <div id="modelLabelRow" class="hidden"><dt>Model</dt><dd id="modelLabelValue">—</dd></div>
-            <div><dt>Confidence</dt><dd id="confidenceValue">—</dd></div>
-          </dl>
-        </div>
-      </div>
+        <details class="draft-details"><summary>Original rough request</summary><pre id="originalDraftText" class="draft-text"></pre></details>
+      </section>
 
-      <div id="fallbackNotice" class="notice hidden">
-        <h2>Fallback details</h2>
-        <p id="fallbackReasonText"></p>
-        <ul id="schemaErrorsList" class="hidden"></ul>
-      </div>
+      <section class="card">
+        <h2>Engine</h2>
+        <dl class="facts">
+          <div><dt>Task</dt><dd id="taskTypeValue">—</dd></div>
+          <div><dt>Engine</dt><dd id="engineUsedValue">—</dd></div>
+          <div id="routeDecisionRow" class="hidden"><dt>Route</dt><dd id="routeDecisionValue">—</dd></div>
+          <div id="modelLabelRow" class="hidden"><dt>Model</dt><dd id="modelLabelValue">—</dd></div>
+          <div><dt>Clarity confidence</dt><dd id="confidenceValue">—</dd></div>
+        </dl>
+        <div id="fallbackNotice" class="notice hidden"><h2>Fallback details</h2><p id="fallbackReasonText"></p><ul id="schemaErrorsList" class="hidden"></ul></div>
+      </section>
     </section>
   </div>
-
   <script type="module" src="sidepanel.js"></script>
 </body>
 </html>
