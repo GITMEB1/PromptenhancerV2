@@ -1,31 +1,34 @@
-export const VALID_TASK_TYPES = new Set(['explain', 'research', 'write', 'edit', 'build', 'plan']);
+export const VALID_TASK_TYPES = new Set(['explain','research','write','edit','build','plan','analyse','decide']);
 
 export function validateUpgradeResult(result) {
   const errors = collectSchemaErrors(result);
-  if (errors.length > 0) return { ok: false, error: errors[0] };
-  return { ok: true };
+  return errors.length ? { ok: false, error: errors[0] } : { ok: true };
 }
 
 export function collectSchemaErrors(result) {
   const errors = [];
-  if (!result || typeof result !== 'object') {
-    return ['Result is not an object.'];
-  }
+  if (!result || typeof result !== 'object') return ['Result is not an object.'];
   if (!VALID_TASK_TYPES.has(result.task_type)) errors.push('Invalid task_type.');
-  if (!isNonEmptyString(result.improved_prompt)) errors.push('Missing improved_prompt.');
-  if (!isStringArray(result.assumptions)) errors.push('Invalid assumptions.');
-  if (!isStringArray(result.missing_constraints)) errors.push('Invalid missing_constraints.');
-  if (!isStringArray(result.clarifying_questions)) errors.push('Invalid clarifying_questions.');
-  if (!result.variants || typeof result.variants !== 'object') {
-    errors.push('Missing variants.');
+  if (!isNonEmptyString(result.compiled_prompt || result.improved_prompt)) errors.push('Missing compiled_prompt.');
+  if (!result.intent || typeof result.intent !== 'object') {
+    errors.push('Missing intent.');
   } else {
-    if (!isNonEmptyString(result.variants.concise)) errors.push('Missing concise variant.');
-    if (!isNonEmptyString(result.variants.rigorous)) errors.push('Missing rigorous variant.');
-    if (!isNonEmptyString(result.variants.agent_spec)) errors.push('Missing agent_spec variant.');
+    if (!isNonEmptyString(result.intent.primary_goal)) errors.push('Missing intent.primary_goal.');
+    if (!isNonEmptyString(result.intent.desired_outcome)) errors.push('Missing intent.desired_outcome.');
+    if (!isNonEmptyString(result.intent.quality_bar)) errors.push('Missing intent.quality_bar.');
+    for (const key of ['success_criteria','hard_constraints','soft_preferences','non_goals']) {
+      if (!isStringArray(result.intent[key])) errors.push(`Invalid intent.${key}.`);
+    }
   }
-  if (!isStringArray(result.safety_notes)) errors.push('Invalid safety_notes.');
-  if (typeof result.confidence !== 'number' || result.confidence < 0 || result.confidence > 1) {
-    errors.push('Invalid confidence.');
+  if (!result.interpretation || !isNonEmptyString(result.interpretation.summary)) errors.push('Missing interpretation.summary.');
+  if (!Array.isArray(result.ambiguities)) errors.push('Invalid ambiguities.');
+  if (!Array.isArray(result.assumptions)) errors.push('Invalid assumptions.');
+  if (!isNonEmptyString(result.clarified_brief)) errors.push('Missing clarified_brief.');
+  if (!result.variants || typeof result.variants !== 'object') errors.push('Missing variants.');
+  else {
+    if (!isNonEmptyString(result.variants.concise)) errors.push('Missing concise variant.');
+    if (!isNonEmptyString(result.variants.deep || result.variants.rigorous)) errors.push('Missing deep variant.');
+    if (!isNonEmptyString(result.variants.implementation_spec || result.variants.agent_spec)) errors.push('Missing implementation_spec variant.');
   }
   return errors;
 }
@@ -35,6 +38,5 @@ function isNonEmptyString(value) {
 }
 
 function isStringArray(value) {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+  return Array.isArray(value) && value.every(item => typeof item === 'string');
 }
-
