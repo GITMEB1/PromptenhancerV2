@@ -1,25 +1,21 @@
 export const DEFAULT_SETTINGS = {
   privacyMode: 'hybrid',
+  cloudProvider: 'openai',
+  openaiModel: 'gpt-5.6-terra',
+  openrouterModel: 'openai/gpt-5.6-terra',
+  managedEndpoint: '',
+  managedModelLabel: 'managed-clarity-engine',
+  reasoningEffort: 'medium',
+  clarificationPolicy: 'balanced',
+  maxClarifyingQuestions: 3,
+  remoteTimeoutMs: 30000,
   diagnosticsEnabled: false,
   saveLocalHistory: false,
-  remoteEndpoint: '',
-  remoteApiKey: '',
-  remoteModelLabel: 'custom-remote',
-  remoteTimeoutMs: 8000,
   inlineButtonEnabled: true
 };
 
-export const EMPTY_RESULT = {
-  task_type: 'write',
-  improved_prompt: '',
-  assumptions: [],
-  missing_constraints: [],
-  clarifying_questions: [],
-  variants: {
-    concise: '',
-    rigorous: '',
-    agent_spec: ''
-  },
-  safety_notes: [],
-  confidence: 0.0
-};
+export const SECRET_SETTING_KEYS = [
+  'openaiApiKey',
+  'openrouterApiKey',
+  'managedApiKey'
+];
