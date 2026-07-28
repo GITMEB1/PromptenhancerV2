@@ -3,79 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prompt Upgrader Settings</title>
+  <title>Clarity Engine Settings</title>
   <style>
     :root { color-scheme: dark; }
     body { font-family: Inter, system-ui, sans-serif; background: #0b1020; color: #eef2ff; margin: 0; padding: 24px; }
-    .wrap { max-width: 760px; margin: 0 auto; }
-    .card { background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    .card { background: #111827; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
     h1,h2 { margin: 0 0 10px; }
     label { display: block; font-size: 14px; margin: 14px 0 6px; color: #b7c0e0; }
-    input, select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: #0f172a; color: #eef2ff; }
-    input.short { width: 140px; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: #0f172a; color: #eef2ff; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .actions { display: flex; gap: 10px; margin-top: 16px; }
-    button { padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: #1d4ed8; color: white; cursor: pointer; }
+    button { padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); background: #1d4ed8; color: white; cursor: pointer; }
     button.secondary { background: #1f2937; }
     .help { color: #94a3b8; font-size: 13px; }
+    .warning { color: #fbbf24; }
     .toggle { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
     .toggle input { width: auto; }
-    .field-error { color: #f87171; font-size: 13px; margin-top: 4px; display: none; }
-    .field-error.visible { display: block; }
+    .hidden { display: none; }
+    @media (max-width: 680px) { .row { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>Prompt Upgrader settings</h1>
-      <p class="help">This starter is honest by design: it always works with a heuristic fallback, and it only uses local or remote AI routes when they are available and configured.</p>
+      <h1>Prompt Enhancer V3</h1>
+      <p class="help">Configure how rough requests are interpreted, clarified and compiled. The extension never auto-sends.</p>
     </div>
 
     <div class="card">
-      <h2>Routing</h2>
+      <h2>Clarity provider</h2>
       <label for="privacyMode">Privacy mode</label>
       <select id="privacyMode">
-        <option value="local-only">Local only</option>
-        <option value="hybrid">Hybrid</option>
+        <option value="local-only">Local deterministic only</option>
+        <option value="hybrid">Use cloud when configured</option>
         <option value="cloud-preferred">Cloud preferred</option>
       </select>
 
-      <label for="remoteEndpoint">Remote endpoint URL</label>
-      <input id="remoteEndpoint" type="url" placeholder="https://your-endpoint.example.com/upgrade" />
-      <div id="endpointError" class="field-error">Enter a valid http:// or https:// URL, or leave empty.</div>
-      <div class="help">Optional. If set, the extension can route complex upgrades to your own backend.</div>
+      <label for="cloudProvider">Cloud provider</label>
+      <select id="cloudProvider">
+        <option value="openai">OpenAI</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="managed">Managed/custom endpoint</option>
+      </select>
 
-      <label for="remoteApiKey">Remote API key</label>
-      <input id="remoteApiKey" type="password" placeholder="Bearer token or custom API key" />
-
-      <div class="row">
-        <div>
-          <label for="remoteModelLabel">Remote model label</label>
-          <input id="remoteModelLabel" type="text" placeholder="custom-remote" />
-        </div>
-        <div>
-          <label for="remoteTimeoutMs">Request timeout (ms)</label>
-          <input id="remoteTimeoutMs" type="number" class="short" min="1000" max="60000" step="500" placeholder="8000" />
-          <div class="help">How long to wait before falling back (1000–60000).</div>
+      <div id="openaiFields">
+        <div class="row">
+          <div><label for="openaiModel">OpenAI model</label><input id="openaiModel" type="text" /></div>
+          <div><label for="openaiApiKey">OpenAI API key</label><input id="openaiApiKey" type="password" placeholder="sk-..." /></div>
         </div>
       </div>
+
+      <div id="openrouterFields" class="hidden">
+        <div class="row">
+          <div><label for="openrouterModel">OpenRouter model</label><input id="openrouterModel" type="text" /></div>
+          <div><label for="openrouterApiKey">OpenRouter API key</label><input id="openrouterApiKey" type="password" /></div>
+        </div>
+      </div>
+
+      <div id="managedFields" class="hidden">
+        <label for="remoteEndpoint">Managed endpoint URL</label>
+        <input id="remoteEndpoint" type="url" placeholder="https://your-backend.example.com/clarify" />
+        <div class="row">
+          <div><label for="remoteApiKey">Managed endpoint key</label><input id="remoteApiKey" type="password" /></div>
+          <div><label for="remoteModelLabel">Model label</label><input id="remoteModelLabel" type="text" /></div>
+        </div>
+      </div>
+
+      <p class="help warning">Direct API keys are stored in Chrome local storage on this device. For a public release, route requests through an authenticated backend instead of distributing a shared key.</p>
+    </div>
+
+    <div class="card">
+      <h2>Goal extraction</h2>
+      <div class="row">
+        <div>
+          <label for="reasoningEffort">Reasoning effort</label>
+          <select id="reasoningEffort"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+        </div>
+        <div>
+          <label for="clarificationPolicy">Clarification policy</label>
+          <select id="clarificationPolicy"><option value="minimal">Minimal questions</option><option value="balanced">Balanced</option><option value="rigorous">Rigorous</option></select>
+        </div>
+      </div>
+      <label for="maxClarifyingQuestions">Maximum clarifying questions</label>
+      <input id="maxClarifyingQuestions" type="number" min="0" max="5" />
+      <label for="remoteTimeoutMs">Provider timeout (ms)</label>
+      <input id="remoteTimeoutMs" type="number" min="5000" max="120000" step="1000" />
     </div>
 
     <div class="card">
       <h2>Behaviour</h2>
-      <div class="toggle"><input id="inlineButtonEnabled" type="checkbox" /><label for="inlineButtonEnabled">Show small inline Upgrade button on supported pages</label></div>
+      <div class="toggle"><input id="inlineButtonEnabled" type="checkbox" /><label for="inlineButtonEnabled">Show inline Clarify button</label></div>
       <div class="toggle"><input id="diagnosticsEnabled" type="checkbox" /><label for="diagnosticsEnabled">Enable diagnostics</label></div>
-      <div class="toggle"><input id="saveLocalHistory" type="checkbox" /><label for="saveLocalHistory">Save local history on this device</label></div>
+      <div class="toggle"><input id="saveLocalHistory" type="checkbox" /><label for="saveLocalHistory">Save local clarity history</label></div>
     </div>
 
     <div class="actions">
       <button id="saveBtn">Save settings</button>
       <button id="resetBtn" class="secondary">Reset defaults</button>
+      <button id="clearHistoryBtn" class="secondary">Clear history</button>
     </div>
-
     <p id="status" class="help"></p>
   </div>
-
   <script type="module" src="options.js"></script>
 </body>
 </html>
