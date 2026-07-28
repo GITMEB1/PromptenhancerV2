@@ -1,75 +1,90 @@
 import { DEFAULT_SETTINGS } from '../src/defaults.js';
 import { isValidRemoteUrl } from '../src/engines.js';
 
-const fields = {
-  privacyMode: document.getElementById('privacyMode'),
-  remoteEndpoint: document.getElementById('remoteEndpoint'),
-  remoteApiKey: document.getElementById('remoteApiKey'),
-  remoteModelLabel: document.getElementById('remoteModelLabel'),
-  remoteTimeoutMs: document.getElementById('remoteTimeoutMs'),
-  diagnosticsEnabled: document.getElementById('diagnosticsEnabled'),
-  saveLocalHistory: document.getElementById('saveLocalHistory'),
-  inlineButtonEnabled: document.getElementById('inlineButtonEnabled')
-};
+const secretKeys = new Set(['openaiApiKey', 'openrouterApiKey', 'remoteApiKey']);
+const fields = Object.fromEntries([
+  'privacyMode','cloudProvider','openaiModel','openaiApiKey','openrouterModel','openrouterApiKey',
+  'remoteEndpoint','remoteApiKey','remoteModelLabel','reasoningEffort','clarificationPolicy',
+  'maxClarifyingQuestions','remoteTimeoutMs','diagnosticsEnabled','saveLocalHistory','inlineButtonEnabled'
+].map(id => [id, document.getElementById(id)]));
 
 const statusEl = document.getElementById('status');
-const endpointErrorEl = document.getElementById('endpointError');
+const providerSections = {
+  openai: document.getElementById('openaiFields'),
+  openrouter: document.getElementById('openrouterFields'),
+  managed: document.getElementById('managedFields')
+};
 
 document.getElementById('saveBtn').addEventListener('click', saveSettings);
 document.getElementById('resetBtn').addEventListener('click', resetSettings);
-
+document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
+fields.cloudProvider.addEventListener('change', renderProviderFields);
 void loadSettings();
 
 async function loadSettings() {
-  const settings = { ...DEFAULT_SETTINGS, ...(await chrome.storage.sync.get(null)) };
+  const [synced, local] = await Promise.all([
+    chrome.storage.sync.get(null),
+    chrome.storage.local.get([...secretKeys])
+  ]);
+  const settings = { ...DEFAULT_SETTINGS, ...synced, ...local };
   for (const [key, el] of Object.entries(fields)) {
     if (el.type === 'checkbox') el.checked = Boolean(settings[key]);
-    else if (el.type === 'number') el.value = settings[key] ?? '';
-    else el.value = settings[key] || '';
+    else el.value = settings[key] ?? '';
   }
-  clearEndpointError();
+  renderProviderFields();
 }
 
 async function saveSettings() {
-  const endpointValue = fields.remoteEndpoint.value.trim();
-  if (!isValidRemoteUrl(endpointValue)) {
-    showEndpointError();
+  if (!isValidRemoteUrl(fields.remoteEndpoint.value.trim())) {
+    setStatus('Enter a valid managed endpoint URL or leave it blank.');
     return;
   }
-  clearEndpointError();
 
-  const next = {};
+  const synced = {};
+  const local = {};
   for (const [key, el] of Object.entries(fields)) {
-    if (el.type === 'checkbox') {
-      next[key] = el.checked;
-    } else if (el.type === 'number') {
-      const num = Number(el.value);
-      next[key] = num > 0 ? Math.max(1000, Math.min(60000, num)) : DEFAULT_SETTINGS[key];
-    } else {
-      next[key] = el.value.trim();
-    }
+    let value;
+    if (el.type === 'checkbox') value = el.checked;
+    else if (el.type === 'number') value = Number(el.value);
+    else value = el.value.trim();
+
+    if (key === 'maxClarifyingQuestions') value = Math.max(0, Math.min(5, value || 0));
+    if (key === 'remoteTimeoutMs') value = Math.max(5000, Math.min(120000, value || DEFAULT_SETTINGS.remoteTimeoutMs));
+    (secretKeys.has(key) ? local : synced)[key] = value;
   }
-  await chrome.storage.sync.set(next);
+
+  await Promise.all([
+    chrome.storage.sync.set(synced),
+    chrome.storage.local.set(local)
+  ]);
   setStatus('Settings saved.');
 }
 
 async function resetSettings() {
-  await chrome.storage.sync.set(DEFAULT_SETTINGS);
+  const syncedDefaults = Object.fromEntries(Object.entries(DEFAULT_SETTINGS).filter(([key]) => !secretKeys.has(key)));
+  await Promise.all([
+    chrome.storage.sync.set(syncedDefaults),
+    chrome.storage.local.remove([...secretKeys])
+  ]);
   await loadSettings();
-  setStatus('Defaults restored.');
+  setStatus('Defaults restored and stored keys removed.');
+}
+
+async function clearHistory() {
+  await chrome.storage.local.remove(['clarityHistory']);
+  setStatus('Local clarity history cleared.');
+}
+
+function renderProviderFields() {
+  const selected = fields.cloudProvider.value || 'openai';
+  for (const [name, section] of Object.entries(providerSections)) {
+    section.classList.toggle('hidden', name !== selected);
+  }
 }
 
 function setStatus(text) {
   statusEl.textContent = text;
   setTimeout(() => {
     if (statusEl.textContent === text) statusEl.textContent = '';
-  }, 2500);
-}
-
-function showEndpointError() {
-  endpointErrorEl.classList.add('visible');
-}
-
-function clearEndpointError() {
-  endpointErrorEl.classList.remove('visible');
+  }, 3500);
 }
